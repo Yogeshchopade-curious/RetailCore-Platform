@@ -287,14 +287,23 @@ elif choice == "Settings":
     with col1:
         st.subheader("Business Information")
         st.text_input("Business Name", value="My Retail Store")
-        st.selectbox("Retailer Type", ["Stationery + Grocery", "Electronics", "Apparel"])
+        
+        # Updated Dropdown with all your verticals
+        retailer_type = st.selectbox(
+            "Retailer Type", 
+            ["Grocery Store", "Stationery", "Medical / Pharmacy", "Agro / Agriculture", "Electronics", "Hardware"]
+        )
+        # Save this choice to the app's memory so other pages can use it
+        st.session_state['retailer_type'] = retailer_type
+        
         st.selectbox("Currency", ["Indian Rupee (₹)", "USD ($)"])
     with col2:
         st.subheader("Forecast Settings")
         st.number_input("Safety Stock (days of buffer)", value=5)
         st.number_input("Alert Threshold (%)", value=50)
+        
         if st.button("Save Settings"):
-            st.success("Settings saved successfully to database.")
+            st.success(f"Settings saved! Platform optimized for {retailer_type}.")
 
 else:
     st.title(choice)
