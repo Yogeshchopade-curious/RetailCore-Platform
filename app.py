@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import sqlite3
 import pickle
 import numpy as np
 import lightgbm as lgb
+from supabase import create_client, Client
 
 # -----------------------------------------
 # 1. PAGE CONFIGURATION & CUSTOM CSS
@@ -59,12 +59,10 @@ st.markdown("""
     /* BOLT.AI EXACT SIDEBAR MENU HACKS  */
     /* --------------------------------- */
     
-    /* 1. Hide the default Streamlit radio button circles */
     [data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] > label > div:first-child {
         display: none !important;
     }
     
-    /* 2. Style the menu items (padding, color, rounded corners) */
     [data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] > label {
         padding: 0.6rem 1rem !important;
         margin-bottom: 0.2rem !important;
@@ -75,13 +73,11 @@ st.markdown("""
         border-left: 4px solid transparent; 
     }
     
-    /* 3. Hover state for unselected menu items */
     [data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] > label:hover {
         background-color: #f1f5f9 !important;
         color: #0f172a !important;
     }
     
-    /* 4. ACTIVE SELECTED STATE */
     [data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] > label:has(input:checked) {
         background-color: #eff6ff !important;
         color: #2563eb !important;
@@ -90,7 +86,6 @@ st.markdown("""
         border-bottom-left-radius: 0px !important;
     }
     
-    /* Align the icon and text properly */
     [data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] > label p {
         font-size: 0.95rem !important;
         margin: 0 !important;
@@ -109,14 +104,29 @@ def load_ml_model():
     except Exception as e:
         return None
 
-@st.cache_data
+@st.cache_resource
+def init_connection():
+    try:
+        url = st.secrets["SUPABASE_URL"]
+        key = st.secrets["SUPABASE_KEY"]
+        return create_client(url, key)
+    except:
+        return None
+
+supabase: Client = init_connection()
+
+@st.cache_data(ttl=600)
 def load_database_data():
     try:
-        conn = sqlite3.connect("retail.db")
-        df = pd.read_sql_query("SELECT * FROM daily_inventory", conn)
-        conn.close()
-        return df
+        if supabase is None:
+            raise Exception("Supabase not initialized")
+        response = supabase.table("daily_inventory").select("*").execute()
+        if response.data:
+            return pd.DataFrame(response.data)
+        else:
+            raise Exception("Table empty")
     except:
+        # Fallback dummy data so the UI doesn't crash during your pitch
         dates = pd.date_range(start="2026-10-06", periods=30)
         return pd.DataFrame({
             "date": dates,
@@ -160,7 +170,6 @@ choice = choice_with_icon.split("  ")[-1].strip()
 # -----------------------------------------
 # 4. PAGE ROUTING & UI LAYOUTS
 # -----------------------------------------
-
 if choice == "Dashboard":
     st.title("Dashboard")
     st.markdown("Monitor sales performance, demand forecasts and inventory health.")
@@ -179,7 +188,6 @@ if choice == "Dashboard":
     st.write("") 
     
     chart_col1, chart_col2 = st.columns([2, 1])
-    
     with chart_col1:
         st.subheader("Sales Trend")
         if "date" in df.columns and "revenue" in df.columns:
@@ -190,7 +198,6 @@ if choice == "Dashboard":
     with chart_col2:
         st.subheader("Inventory Overview")
         donut_data = pd.DataFrame({'Status': ['Normal', 'Low', 'Critical'], 'Count': [10, 6, 0]})
-        # Colors updated to exact requested mapping
         fig_donut = px.pie(donut_data, values='Count', names='Status', hole=0.7, 
                            color='Status', color_discrete_map={'Normal': '#3b82f6', 'Low': '#10b981', 'Critical': '#f97316'})
         fig_donut.update_layout(showlegend=False, margin=dict(l=0, r=0, t=0, b=0))
@@ -226,7 +233,6 @@ elif choice == "Inventory":
         "Reorder Qty": [108, 114, 54, 52, 367],
         "Status": ["🔴 Critical", "🟠 Low", "🔴 Critical", "🟠 Low", "🔴 Critical"]
     })
-    
     st.dataframe(inventory_data, use_container_width=True, hide_index=True)
 
 elif choice == "Sales Forecast":
@@ -278,6 +284,37 @@ elif choice == "Low Stock Alerts":
             st.write("Current Stock: **18** | Predicted Demand: **62** | Reorder Qty: **54**")
             st.button("Create Reorder", key="reorder_2")
 
+elif choice == "Products":
+    st.title("Products")
+    st.markdown("Manage your product catalog and monitor stock levels.")
+    st.divider()
+    
+    filter_col1, filter_col2, filter_col3, filter_col4 = st.columns([2, 1, 1, 1])
+    with filter_col1:
+        st.text_input("Search", placeholder="🔍 Search by name or SKU...", label_visibility="collapsed")
+    with filter_col2:
+        st.selectbox("Category", ["All Categories", "Stationery", "Grocery"], label_visibility="collapsed")
+    with filter_col3:
+        st.selectbox("Stock Status", ["All Status", "Critical", "Low", "Normal"], label_visibility="collapsed")
+    with filter_col4:
+        st.button("+ Add Product", type="primary", use_container_width=True)
+
+    st.write("")
+    st.subheader("Products (16)")
+    
+    products_data = pd.DataFrame({
+        "Product Name": ["A4 Paper Ream", "A5 Notebook", "Ball Pen (Blue)", "Biscuits Pack", "Cooking Oil 1L", "Dal 1kg", "Eraser"],
+        "Category": ["Stationery", "Stationery", "Stationery", "Grocery", "Grocery", "Grocery", "Stationery"],
+        "SKU": ["PA-A4-004", "NB-A5-001", "PEN-BL-002", "BS-008", "CO-1L-007", "DL-1KG-013", "ER-011"],
+        "Price": ["₹250", "₹60", "₹10", "₹35", "₹145", "₹110", "₹5"],
+        "Stock": [60, 45, 320, 180, 55, 38, 250],
+        "Avg Daily Demand": [3, 4, 12, 9, 4, 4, 8],
+        "Forecast Demand": [97, 133, 374, 295, 135, 137, 265],
+        "Demand Pattern": ["Medium", "Medium", "Seasonal", "High", "Medium", "Medium", "High"],
+        "Status": ["🟠 Low", "🔴 Critical", "🟠 Low", "🟠 Low", "🔴 Critical", "🔴 Critical", "🟠 Low"]
+    })
+    st.dataframe(products_data, use_container_width=True, hide_index=True)
+
 elif choice == "Settings":
     st.title("Settings")
     st.markdown("Configure your business information and forecasting preferences.")
@@ -288,12 +325,10 @@ elif choice == "Settings":
         st.subheader("Business Information")
         st.text_input("Business Name", value="My Retail Store")
         
-        # Updated Dropdown with all your verticals
         retailer_type = st.selectbox(
             "Retailer Type", 
             ["Grocery Store", "Stationery", "Medical / Pharmacy", "Agro / Agriculture", "Electronics", "Hardware"]
         )
-        # Save this choice to the app's memory so other pages can use it
         st.session_state['retailer_type'] = retailer_type
         
         st.selectbox("Currency", ["Indian Rupee (₹)", "USD ($)"])
