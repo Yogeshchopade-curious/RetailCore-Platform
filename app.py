@@ -126,7 +126,7 @@ def load_database_data():
         else:
             raise Exception("Table empty")
     except:
-        # Fallback dummy data so the UI doesn't crash during your pitch
+        # Fallback dummy data
         dates = pd.date_range(start="2026-10-06", periods=30)
         return pd.DataFrame({
             "date": dates,
@@ -265,7 +265,7 @@ elif choice == "Sales Forecast":
                     future_X = pd.DataFrame({'day': future_dates.day, 'dayofweek': future_dates.dayofweek})
                     predictions = new_model.predict(future_X)
                     
-                    # 4. Display the results (FIX APPLIED HERE: Removed .dt)
+                    # 4. Display the results (Fixed .dt error)
                     forecast_df = pd.DataFrame({
                         'Future Date': future_dates.strftime('%b %d, %Y'), 
                         'Predicted Units to Sell': np.round(predictions).astype(int)
@@ -278,6 +278,7 @@ elif choice == "Sales Forecast":
                     st.error(f"Error during retraining: {e}")
             else:
                 st.warning("Not enough data in the cloud to retrain the model.")
+
 elif choice == "Inventory":
     st.title("Inventory Management")
     st.markdown("Monitor current stock and plan replenishment using predicted demand.")
@@ -386,7 +387,7 @@ elif choice == "Reports":
             st.warning("⚠️ **Low Stock Action Plan**\n\nList of all items below safety stock with recommended reorder quantities.")
             st.button("⬇️ Download PDF", key="dl_pdf_2")
             st.button("⬇️ Download CSV", key="dl_csv_2")
-            
+
 elif choice == "Upload Data":
     st.title("Upload Data")
     st.markdown("Drag and drop daily sales reports to update the cloud database.")
@@ -409,7 +410,8 @@ elif choice == "Upload Data":
                     records = df_upload.to_dict(orient="records")
                     
                     # Insert the records into the daily_inventory table
-                    supabase.table("daily_inventory").insert(records).execute()
+                    if supabase:
+                        supabase.table("daily_inventory").insert(records).execute()
                     
                     # Clear Streamlit's cache so the dashboard updates instantly
                     st.cache_data.clear()
@@ -417,7 +419,7 @@ elif choice == "Upload Data":
                     st.success(f"✅ Successfully synced {len(records)} new rows to the cloud! Your dashboard is now up to date.")
                     
         except Exception as e:
-            st.error(f"Error processing file: {e}")            
+            st.error(f"Error processing file: {e}")
 
 elif choice == "Settings":
     st.title("Settings")
