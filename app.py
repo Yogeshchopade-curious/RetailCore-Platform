@@ -253,7 +253,6 @@ elif choice == "Sales Forecast":
                     y = train_df['units_sold']
                     
                     # 2. Retrain the model on the fly
-                    # Using parameters safe for small datasets so it doesn't crash during early days
                     new_model = lgb.LGBMRegressor(n_estimators=50, min_child_samples=1, random_state=42)
                     new_model.fit(X, y)
                     
@@ -265,9 +264,9 @@ elif choice == "Sales Forecast":
                     future_X = pd.DataFrame({'day': future_dates.day, 'dayofweek': future_dates.dayofweek})
                     predictions = new_model.predict(future_X)
                     
-                    # 4. Display the results
+                    # 4. Display the results (FIX APPLIED HERE: Removed .dt)
                     forecast_df = pd.DataFrame({
-                        'Future Date': future_dates.dt.strftime('%b %d, %Y'), 
+                        'Future Date': future_dates.strftime('%b %d, %Y'), 
                         'Predicted Units to Sell': np.round(predictions).astype(int)
                     })
                     
@@ -278,7 +277,6 @@ elif choice == "Sales Forecast":
                     st.error(f"Error during retraining: {e}")
             else:
                 st.warning("Not enough data in the cloud to retrain the model.")
-
 elif choice == "Inventory":
     st.title("Inventory Management")
     st.markdown("Monitor current stock and plan replenishment using predicted demand.")
