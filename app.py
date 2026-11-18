@@ -239,11 +239,45 @@ elif choice == "Sales Forecast":
     }
     st.dataframe(pd.DataFrame(performance_data), use_container_width=True, hide_index=True)
     
-    if st.button("Generate New 30-Day Forecast"):
-        if model is not None:
-            st.success("Successfully generated forecast using LightGBM model!")
-        else:
-            st.warning("Model file not found. Ensure lightgbm_model.pkl is uploaded.")
+    if st.button("🧠 Retrain Model & Generate Forecast", type="primary"):
+        with st.spinner("Fetching live data from Supabase and retraining LightGBM..."):
+            if len(df) > 0:
+                try:
+                    # 1. Prepare data for the ML algorithm
+                    train_df = df.copy()
+                    train_df['date'] = pd.to_datetime(train_df['date'])
+                    train_df['day'] = train_df['date'].dt.day
+                    train_df['dayofweek'] = train_df['date'].dt.dayofweek
+                    
+                    X = train_df[['day', 'dayofweek']]
+                    y = train_df['units_sold']
+                    
+                    # 2. Retrain the model on the fly
+                    # Using parameters safe for small datasets so it doesn't crash during early days
+                    new_model = lgb.LGBMRegressor(n_estimators=50, min_child_samples=1, random_state=42)
+                    new_model.fit(X, y)
+                    
+                    st.success(f"✅ Model successfully retrained on the latest {len(train_df)} cloud records!")
+                    
+                    # 3. Generate future 7-day predictions
+                    last_date = train_df['date'].max()
+                    future_dates = pd.date_range(last_date + pd.Timedelta(days=1), periods=7)
+                    future_X = pd.DataFrame({'day': future_dates.day, 'dayofweek': future_dates.dayofweek})
+                    predictions = new_model.predict(future_X)
+                    
+                    # 4. Display the results
+                    forecast_df = pd.DataFrame({
+                        'Future Date': future_dates.dt.strftime('%b %d, %Y'), 
+                        'Predicted Units to Sell': np.round(predictions).astype(int)
+                    })
+                    
+                    st.write("### 🔮 7-Day AI Outlook")
+                    st.dataframe(forecast_df, use_container_width=True, hide_index=True)
+                    
+                except Exception as e:
+                    st.error(f"Error during retraining: {e}")
+            else:
+                st.warning("Not enough data in the cloud to retrain the model.")
 
 elif choice == "Inventory":
     st.title("Inventory Management")
