@@ -161,6 +161,7 @@ menu = [
     "⚠️  Low Stock Alerts",
     "🛍️  Products",
     "📄  Reports",
+    "📤  Upload Data",
     "⚙️  Settings"
 ]
 
@@ -385,6 +386,38 @@ elif choice == "Reports":
             st.warning("⚠️ **Low Stock Action Plan**\n\nList of all items below safety stock with recommended reorder quantities.")
             st.button("⬇️ Download PDF", key="dl_pdf_2")
             st.button("⬇️ Download CSV", key="dl_csv_2")
+            
+elif choice == "Upload Data":
+    st.title("Upload Data")
+    st.markdown("Drag and drop daily sales reports to update the cloud database.")
+    st.divider()
+    
+    st.info("💡 **Required CSV Columns:** `date` (YYYY-MM-DD), `revenue` (numeric), `units_sold` (numeric)")
+    
+    uploaded_file = st.file_uploader("Upload Sales Report (CSV)", type=["csv"])
+    
+    if uploaded_file is not None:
+        try:
+            # Read the uploaded CSV
+            df_upload = pd.read_csv(uploaded_file)
+            st.write("### Data Preview")
+            st.dataframe(df_upload.head(), use_container_width=True, hide_index=True)
+            
+            if st.button("☁️ Sync to Supabase Cloud", type="primary"):
+                with st.spinner("Pushing records to secure cloud database..."):
+                    # Convert pandas dataframe to a list of dictionaries for Supabase
+                    records = df_upload.to_dict(orient="records")
+                    
+                    # Insert the records into the daily_inventory table
+                    supabase.table("daily_inventory").insert(records).execute()
+                    
+                    # Clear Streamlit's cache so the dashboard updates instantly
+                    st.cache_data.clear()
+                    
+                    st.success(f"✅ Successfully synced {len(records)} new rows to the cloud! Your dashboard is now up to date.")
+                    
+        except Exception as e:
+            st.error(f"Error processing file: {e}")            
 
 elif choice == "Settings":
     st.title("Settings")
