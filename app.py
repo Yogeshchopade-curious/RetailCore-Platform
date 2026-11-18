@@ -150,4 +150,5 @@ st.sidebar.markdown("""
             <p style="margin: 0; font-size: 0.8rem; color: #64748b;">Retail Analytics</p>
         </div>
     </div>
-    <p style="font-size: 0.75rem; color: #94
+    <p style="font-size: 0.75rem; color: #94a3b8; font-weight: 700; margin-bottom: 5px; letter-spacing: 1px;">MENU</p>
+""", unsafe_allow_html=True)
