@@ -293,7 +293,7 @@ elif choice == "Products":
     with filter_col1:
         st.text_input("Search", placeholder="🔍 Search by name or SKU...", label_visibility="collapsed")
     with filter_col2:
-        st.selectbox("Category", ["All Categories", "Stationery", "Grocery"], label_visibility="collapsed")
+        st.selectbox("Category", ["All Categories", "Stationery", "Grocery", "Medical / Pharmacy", "Agro / Agriculture", "Electronics", "Hardware"], label_visibility="collapsed")
     with filter_col3:
         st.selectbox("Stock Status", ["All Status", "Critical", "Low", "Normal"], label_visibility="collapsed")
     with filter_col4:
